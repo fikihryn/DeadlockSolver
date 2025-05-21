@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadlock Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="/static/css/game.css">
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-purple-900 text-white min-h-screen pt-10 pb-20">
+    <div x-data="simulationController()" class="container mx-auto p-4" id="simulation-area">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <div class="mb-4 md:mb-0">
+                <h1 class="text-3xl font-bold">🔄 Deadlock Simulator</h1>
+                <p class="text-gray-300">Learn about resource allocation and deadlock management</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <button @click="toggleRealtimeEdu()" 
+                        :class="{'bg-teal-700': showRealtimeEdu, 'bg-teal-900': !showRealtimeEdu}"
+                        class="px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <span x-text="showRealtimeEdu ? 'Hide Guidance' : 'Show Guidance'"></span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838l-2.727 1.168 1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397a1 1 0 011.354-.4L9.793 12.1a1 1 0 01.431 0A.999.999 0 0010 12a.999.999 0 00-.217-.212l-5-3a1 1 0 00-1.472 1.21L5 12.92v3.584a1 1 0 001.553.833l3.622-2.414a1 1 0 00.394-1.192 2.502 2.502 0 01-.273-.377l-3.292-5.482a1 1 0 111.732-.998l3.292 5.482a2.552 2.552 0 01-.273.372 1 1 0 00.394 1.198l3.622 2.414a1 1 0 001.553-.833V9.239L10 6.416a1 1 0 00-1.316-.082l-2.743 1.643a1 1 0 01-1.19-.19A1 1 0 004 7a1 1 0 00-1 1v2.667a1 1 0 01-.5.866l-1.69.996z" />
+                    </svg>
+                </button>
+                <button @click="generateRandomScenario()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    Generate Random
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <button @click="resetSimulation()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
+                    Reset
+                </button>
+                <a href="/" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
+                    Exit
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column: Process Management -->
+            <div class="space-y-4">
+                <div class="bg-black/30 p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-4">Process Management</h2>
+                    
+                    <!-- Process Creation -->
+                    <div class="mb-4">
+                        <h3 class="font-semibold mb-2">Create New Process</h3>
+                        <div class="bg-black/20 p-3 rounded-lg mb-2">
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <div>
+                                    <label class="block text-xs mb-1">Name</label>
+                                    <input x-model="newProcess.name" type="text" class="bg-black/30 text-white p-1 rounded w-full" placeholder="Process Name">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1">Icon</label>
+                                    <select x-model="newProcess.icon" class="bg-black/30 text-white p-1 rounded">
+                                        <option value="📊">📊 Chart</option>
+                                        <option value="🖥️">🖥️ Computer</option>
+                                        <option value="📱">📱 Mobile</option>
+                                        <option value="🎬">🎬 Video</option>
+                                        <option value="🎮">🎮 Game</option>
+                                        <option value="📝">📝 Document</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label class="block text-xs mb-1">Required Resources</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="res in resources" :key="res.id">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" :id="'need-'+res.id" :value="res.id" x-model="newProcess.needs" class="mr-1">
+                                            <label :for="'need-'+res.id" class="text-sm" x-text="res.name"></label>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            
+                            <button @click="addProcess()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg text-sm w-full">
+                                Add Process
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Random Generator Panel -->
+                    <div class="mb-4">
+                        <h3 class="font-semibold mb-2">Random Scenario Generator</h3>
+                        <div class="bg-black/20 p-3 rounded-lg mb-2">
+                            <div class="flex flex-wrap gap-3 mb-2">
+                                <div>
+                                    <label class="block text-xs mb-1">Number of Processes</label>
+                                    <input x-model.number="randomGenParams.numProcesses" type="number" min="2" max="6" class="bg-black/30 text-white p-1 rounded w-16">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1">Number of Resources</label>
+                                    <input x-model.number="randomGenParams.numResources" type="number" min="2" max="6" class="bg-black/30 text-white p-1 rounded w-16">
+                                </div>
+                            </div>
+                            
+                            <button @click="generateRandomScenario()" class="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded-lg text-sm w-full flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                </svg>
+                                Generate Random Scenario
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Process List -->
+                    <h3 class="font-semibold mb-2">Active Processes</h3>
+                    <div class="space-y-2 max-h-[400px] overflow-y-auto">
+                        <template x-for="(process, index) in processes" :key="process.id">
+                            <div 
+                                :class="{'border-red-500': deadlockProcesses.includes(process.id), 'border-indigo-700': !deadlockProcesses.includes(process.id)}"
+                                class="bg-indigo-900/50 p-3 rounded-lg border"
+                                :data-process-id="process.id"
+                                @dragover.prevent
+                                @drop="dropResourceOnProcess($event, process.id)"
+                            >
+                                <div class="flex justify-between">
+                                    <div class="flex items-center">
+                                        <span class="text-xl mr-2" x-text="process.icon"></span>
+                                        <span x-text="process.name"></span>
+                                    </div>
+                                    <button @click="removeProcess(index)" class="text-red-400 hover:text-red-300">
+                                        ✖
+                                    </button>
+                                </div>
+                                
+                                <!-- Resource Needs -->
+                                <div class="mt-2">
+                                    <div class="text-xs text-gray-400">Needs:</div>
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        <template x-for="(resourceId, idx) in process.needs" :key="idx">
+                                            <span 
+                                                class="text-xs px-2 py-1 rounded-md"
+                                                :class="process.allocation.includes(resourceId) ? 'bg-green-700' : 'bg-purple-900'"
+                                            >
+                                                <span x-text="getResourceName(resourceId)"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <div x-show="processes.length === 0" class="text-center text-gray-400 py-4">
+                            No processes added yet
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Middle Column: Visualization and Real-time Education -->
+            <div class="space-y-4">
+                <!-- Resource Allocation Graph -->
+                <div class="bg-black/30 p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-4">Resource Allocation Graph</h2>
+                    <div id="visualization" class="h-[350px] bg-black/20 rounded-lg mb-4"></div>
+                    
+                    <!-- Deadlock Info -->
+                    <div x-show="deadlockDetected" class="bg-red-900/30 p-3 rounded-lg animate-pulse">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-2">⚠️</span>
+                            <h3 class="font-bold">Deadlock Detected!</h3>
+                        </div>
+                        <p class="text-sm mt-1">
+                            A circular wait has been detected involving 
+                            <span x-text="deadlockProcesses.length"></span> processes.
+                        </p>
+                        <div class="text-sm mt-2">
+                            <p>Deadlock cycle:</p>
+                            <p x-text="formatDeadlockCycle()"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- No Deadlock Info -->
+                    <div x-show="!deadlockDetected && processes.length > 0" class="bg-green-900/30 p-3 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-2">✓</span>
+                            <h3 class="font-bold">No Deadlock</h3>
+                        </div>
+                        <p class="text-sm mt-1">
+                            Current resource allocation is safe.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Real-time Educational Feedback -->
+                <div x-show="showRealtimeEdu" class="bg-black/30 p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-2 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838l-2.727 1.168 1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397a1 1 0 011.354-.4L9.793 12.1a1 1 0 01.431 0A.999.999 0 0010 12a.999.999 0 00-.217-.212l-5-3a1 1 0 00-1.472 1.21L5 12.92v3.584a1 1 0 001.553.833l3.622-2.414a1 1 0 00.394-1.192 2.502 2.502 0 01-.273-.377l-3.292-5.482a1 1 0 111.732-.998l3.292 5.482a2.552 2.552 0 01-.273.372 1 1 0 00.394 1.198l3.622 2.414a1 1 0 001.553-.833V9.239L10 6.416a1 1 0 00-1.316-.082l-2.743 1.643a1 1 0 01-1.19-.19A1 1 0 004 7a1 1 0 00-1 1v2.667a1 1 0 01-.5.866l-1.69.996z" />
+                        </svg>
+                        Real-time Guidance
+                    </h2>
+                    
+                    <div id="edu-log" class="bg-black/20 p-3 rounded-lg max-h-[200px] overflow-y-auto space-y-2">
+                        <template x-for="step in eduSteps" :key="step.id">
+                            <div :class="{
+                                'bg-blue-900/20 border-l-4 border-blue-500': step.type === 'info',
+                                'bg-green-900/20 border-l-4 border-green-500': step.type === 'success',
+                                'bg-red-900/20 border-l-4 border-red-500': step.type === 'warning',
+                                'bg-yellow-900/20 border-l-4 border-yellow-500': step.type === 'tip',
+                                'bg-purple-900/20 border-l-4 border-purple-500': step.type === 'welcome'
+                            }" class="p-2 rounded-r text-sm">
+                                <p x-text="step.message"></p>
+                                <p class="text-xs text-gray-400 mt-1" x-text="step.timestamp.toLocaleTimeString()"></p>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <div x-show="deadlockDetected" class="bg-red-900/20 p-3 rounded-lg mt-3">
+                        <h4 class="font-bold">Kondisi Deadlock</h4>
+                        <p class="text-sm mt-1">
+                            Deadlock terjadi karena 4 kondisi terpenuhi:
+                        </p>
+                        <ol class="list-decimal list-inside text-sm mt-1 space-y-1">
+                            <li>Mutual Exclusion: Resource hanya bisa digunakan oleh 1 proses</li>
+                            <li>Hold & Wait: Proses menunggu resource sambil memegang resource lain</li>
+                            <li>No Preemption: Resource tak bisa diambil paksa</li>
+                            <li>Circular Wait: Ada siklus tunggu melingkar antar proses</li>
+                        </ol>
+                    </div>
+                    
+                    <div x-show="eduHighlights && eduHighlights.type == 'deadlock_cycle'" class="bg-yellow-900/20 p-3 rounded-lg mt-3">
+                        <h4 class="font-bold">Circular Wait Terdeteksi</h4>
+                        <p class="text-sm mt-1" x-text="'Siklus deadlock: ' + (eduHighlights?.cycle || '')"></p>
+                        <p class="text-sm mt-1">
+                            Untuk menyelesaikan deadlock, Anda perlu memutus siklus ini dengan salah satu strategi resolusi.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Resources and Actions -->
+            <div class="space-y-4">
+                <!-- Resources Management -->
+                <div class="bg-black/30 p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-4">Resource Management</h2>
+                    
+                    <!-- Resource Creation -->
+                    <div class="mb-4">
+                        <h3 class="font-semibold mb-2">Create New Resource</h3>
+                        <div class="bg-black/20 p-3 rounded-lg mb-2">
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <div>
+                                    <label class="block text-xs mb-1">Name</label>
+                                    <input x-model="newResource.name" type="text" class="bg-black/30 text-white p-1 rounded w-full" placeholder="Resource Name">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1">Icon</label>
+                                    <select x-model="newResource.icon" class="bg-black/30 text-white p-1 rounded">
+                                        <option value="🖥️">🖥️ CPU</option>
+                                        <option value="💾">💾 Disk</option>
+                                        <option value="📊">📊 Memory</option>
+                                        <option value="🖨️">🖨️ Printer</option>
+                                        <option value="🌐">🌐 Network</option>
+                                        <option value="🎮">🎮 GPU</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button @click="addResource()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg text-sm w-full">
+                                Add Resource
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Resource List -->
+                    <h3 class="font-semibold mb-2">Available Resources</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <template x-for="(resource, index) in resources.filter(r => !r.held_by)" :key="resource.id">
+                            <div 
+                                class="bg-green-900/30 p-3 rounded-lg flex items-center cursor-grab relative"
+                                draggable="true"
+                                @dragstart="dragResource($event, resource.id)"
+                                :data-resource-id="resource.id"
+                            >
+                                <span class="text-xl mr-2" x-text="resource.icon"></span>
+                                <span x-text="resource.name"></span>
+                                <button @click="removeResource(index)" class="absolute top-1 right-1 text-red-400 hover:text-red-300 text-xs">
+                                    ✖
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Allocated Resources -->
+                    <h3 class="font-semibold mt-4 mb-2">Allocated Resources</h3>
+                    <div class="space-y-2">
+                        <template x-for="resource in resources.filter(r => r.held_by)" :key="resource.id">
+                            <div class="bg-gray-800/50 p-3 rounded-lg flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <span class="text-xl mr-2" x-text="resource.icon"></span>
+                                    <div>
+                                        <span x-text="resource.name"></span>
+                                        <div class="text-xs text-gray-400">
+                                            Allocated to <span x-text="getProcessName(resource.held_by)"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button @click="releaseResource(resource.id)" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs">
+                                    Release
+                                </button>
+                            </div>
+                        </template>
+                        
+                        <div x-show="resources.filter(r => r.held_by).length === 0" class="text-center text-gray-400 py-4">
+                            No allocated resources
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Deadlock Resolution -->
+                <div x-show="deadlockDetected" class="bg-black/30 p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-3">Deadlock Resolution</h2>
+                    <p class="text-sm mb-3">Try different strategies to resolve the deadlock:</p>
+                    
+                    <div class="space-y-2">
+                        <!-- Resource Preemption -->
+                        <button 
+                            @click="showPreemptionOptions = true" 
+                            class="bg-black/20 p-3 rounded-lg hover:bg-black/30 w-full text-left transition-colors"
+                        >
+                            <div class="flex items-center">
+                                <div class="bg-yellow-600 p-2 rounded-full mr-3">⚡</div>
+                                <div>
+                                    <h4 class="font-bold">Preemption</h4>
+                                    <p class="text-xs text-gray-400">Force take a resource from a process</p>
+                                </div>
+                            </div>
+                        </button>
+                        
+                        <!-- Terminate Process -->
+                        <button 
+                            @click="showTerminateOptions = true" 
+                            class="bg-black/20 p-3 rounded-lg hover:bg-black/30 w-full text-left transition-colors"
+                        >
+                            <div class="flex items-center">
+                                <div class="bg-red-600 p-2 rounded-full mr-3">✖</div>
+                                <div>
+                                    <h4 class="font-bold">Kill Process</h4>
+                                    <p class="text-xs text-gray-400">Terminate a deadlocked process</p>
+                                </div>
+                            </div>
+                        </button>
+                        
+                        <!-- Complete Rollback -->
+                        <button 
+                            @click="confirmRollback()" 
+                            class="bg-black/20 p-3 rounded-lg hover:bg-black/30 w-full text-left transition-colors"
+                        >
+                            <div class="flex items-center">
+                                <div class="bg-purple-600 p-2 rounded-full mr-3">↩</div>
+                                <div>
+                                    <h4 class="font-bold">Rollback All</h4>
+                                    <p class="text-xs text-gray-400">Reset all resource allocations</p>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Preemption Modal -->
+        <div x-show="showPreemptionOptions" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div class="bg-gradient-to-br from-slate-800 to-indigo-900 p-5 rounded-xl max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                    <h3 class="text-xl font-bold">Select Resource to Preempt</h3>
+                    <button @click="showPreemptionOptions = false" class="text-white/70 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm mb-3 text-gray-300">Choose which allocated resource to forcefully take:</p>
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                        <template x-for="resource in resources.filter(r => r.held_by)" :key="resource.id">
+                            <div class="bg-black/20 p-3 rounded-lg flex items-center justify-between hover:bg-black/30 cursor-pointer transition-colors"
+                                 @click="preemptResource(resource.id)">
+                                <div class="flex items-center">
+                                    <span class="text-xl mr-2" x-text="resource.icon"></span>
+                                    <div>
+                                        <div x-text="resource.name"></div>
+                                        <div class="text-xs text-gray-400">
+                                            Held by <span x-text="getProcessName(resource.held_by)"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-yellow-500 text-sm">Select</div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end border-t border-white/10 pt-3">
+                    <button @click="showPreemptionOptions = false" class="bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded-lg text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Terminate Process Modal -->
+        <div x-show="showTerminateOptions" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div class="bg-gradient-to-br from-slate-800 to-indigo-900 p-5 rounded-xl max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                    <h3 class="text-xl font-bold">Select Process to Terminate</h3>
+                    <button @click="showTerminateOptions = false" class="text-white/70 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm mb-3 text-gray-300">Choose which process to terminate:</p>
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                        <template x-for="process in deadlockProcesses.length > 0 ? processes.filter(p => deadlockProcesses.includes(p.id)) : processes" :key="process.id">
+                            <div class="bg-black/20 p-3 rounded-lg flex items-center justify-between hover:bg-black/30 cursor-pointer transition-colors"
+                                 @click="terminateProcess(process.id)">
+                                <div class="flex items-center">
+                                    <span class="text-xl mr-2" x-text="process.icon"></span>
+                                    <div>
+                                        <div x-text="process.name"></div>
+                                        <div class="text-xs text-gray-400">
+                                            Holding <span x-text="process.allocation.length"></span> resources
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-red-500 text-sm">Terminate</div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end border-t border-white/10 pt-3">
+                    <button @click="showTerminateOptions = false" class="bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded-lg text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/simulation.js"></script>
+</body>
+</html>
